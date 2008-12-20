@@ -135,7 +135,9 @@ post '/sync' do
     throw :halt, [500, "You did wrong.\n"] and return
   else
     # Synchronize articles in data directory to Github repo
-    system "cd #{Configuration::DATA_DIRECTORY}; git pull origin master"
+    path =  File.expand_path(Marley::Configuration::DATA_DIRECTORY)
+    puts "***************", path
+    system "cd #{path} && git pull origin master"
   end
 end
 
