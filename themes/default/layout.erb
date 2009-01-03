@@ -13,7 +13,9 @@
   <link href="http://<%= hostname %>/<%= @post.id %>/feed" rel="alternate" title="Feed for comments on article &ldquo;<%= h(@post.title) %>&rdquo; <%= h(CONFIG['blog']['name']) %>" type="application/atom+xml" />
   <% end %>
 
-
+  
+  <link rel="stylesheet" type="text/css" href="http://yui.yahooapis.com/2.6.0/build/reset/reset-min.css"> 
+  
   <link rel="stylesheet" href="/stylesheets/master.css" type="text/css" media="screen" />
   <script src="/javascripts/application.js" type="text/javascript" charset="utf-8"></script>
 	
@@ -21,7 +23,7 @@
 
 <body>
 
-  <div class="container">
+  <div id="container">
   <%= yield %>
   </div><!-- /container -->
 

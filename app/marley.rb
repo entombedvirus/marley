@@ -69,7 +69,6 @@ helpers do
   def error
     File.read( File.join( File.dirname(__FILE__), 'public', '500.html') )
   end
-
 end
 
 # -----------------------------------------------------------------------------
@@ -78,6 +77,31 @@ get '/' do
   @posts = Marley::Post.published
   @page_title = "#{CONFIG['blog']['title']}"
   erb :index
+end
+
+get '/:year/' do
+  @posts = Marley::Post.find_all_by_year(params[:year])
+  if @posts.blank?
+    throw :halt, [404, not_found]
+  else
+    erb :posts    
+  end
+end
+
+get '/:year/:month/' do
+  @posts = Marley::Post.find_all_by_year([:year, :month].map {|sym| params[sym]}.join("/"))
+  if @posts.blank?
+    throw :halt, [404, not_found]
+  else
+    erb :posts    
+  end
+end
+
+get '/:year/:month/:day/:post_id.html' do
+  @post = Marley::Post.find [:year, :month, :day].map {|sym| params[sym]}.join("/")
+  throw :halt, [404, not_found ] unless @post
+  @page_title = "#{@post.title} #{CONFIG['blog']['name']}"
+  erb :post 
 end
 
 get '/feed' do
@@ -90,13 +114,6 @@ get '/feed/comments' do
   @comments = Marley::Comment.recent.ham
   last_modified( @comments.first.created_at )        # Conditinal GET, send 304 if not modified
   builder :comments
-end
-
-get '/:post_id.html' do
-  @post = Marley::Post[ params[:post_id] ]
-  throw :halt, [404, not_found ] unless @post
-  @page_title = "#{@post.title} #{CONFIG['blog']['name']}"
-  erb :post 
 end
 
 post '/:post_id/comments' do

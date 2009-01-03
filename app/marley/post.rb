@@ -27,8 +27,7 @@ module Marley
       def [](id, options={})
         self.find_one(id, options)
       end
-      alias :find :[] # For +belongs_to+ in Comment
-
+      alias :find :[]
     end
     
     def categories
@@ -36,39 +35,48 @@ module Marley
     end
 
     def permalink
-      "/#{id}.html"
+      "#{id}.html"
     end
             
     private
     
     def self.find_all(options={})
       options[:except] ||= ['body', 'body_html']
-      posts = []
-      self.extract_posts_from_directory(options).each do |file|
-        attributes = self.extract_post_info_from(file, options)
-        attributes.merge!( :comments => Marley::Comment.find_all_by_post_id(attributes[:id], :select => ['id']) )
-        posts << self.new( attributes )
-      end
-      return posts.reverse
+      construct_posts_from(source_files("", options), options).reverse
     end
     
     def self.find_one(id, options={})
-      directory = self.load_directories_with_posts(options).select { |dir| dir =~ Regexp.new("#{id}") }
-      options.merge!( {:draft => true} )
-      # FIXME : Refactor this mess!
-      return if directory.empty?
-      directory = directory.first
-      return unless directory or !File.exist?(directory)
-      file = Dir["#{directory}/*.txt"].first
-      self.new( self.extract_post_info_from(file, options).merge( :comments => Marley::Comment.find_all_by_post_id(id) ) )
+      construct_posts_from(source_files(id, options), options).first
+    end
+
+    def self.find_all_by_year(year, options = {})
+      construct_posts_from(source_files(year, options), options)
+    end
+    
+    def self.source_files(filter, options = {})
+      filter.gsub!(/[^a-zA-Z0-9_\/-]/, '')
+      
+      if options[:draft]
+        Dir[File.join(Configuration::POST_DIRECTORY, filter, '**', '*.txt')].sort
+      else
+        Dir[File.join(Configuration::POST_DIRECTORY, filter, '**', '*.txt')].select { |file| puts file; not file.include?('.draft')  }.sort
+      end
+    end
+    
+    def self.construct_posts_from(files, options = {})
+      files.map do |file|
+        attributes = self.extract_post_info_from(file, options)
+        attributes.merge!( :comments => Marley::Comment.find_all_by_post_id(attributes[:id], :select => ['id']) )
+        new( attributes )
+      end
     end
     
     # Returns directories in data directory. Default is published only (no <tt>.draft</tt> in name)
     def self.load_directories_with_posts(options={})
       if options[:draft]
-        Dir[File.join(Configuration::DATA_DIRECTORY, '*')].select { |dir| File.directory?(dir)  }.sort
+        Dir[File.join(Configuration::POST_DIRECTORY, '**', '*')].select { |dir| File.directory?(dir)  }.sort
       else
-        Dir[File.join(Configuration::DATA_DIRECTORY, '*')].select { |dir| File.directory?(dir) and not dir.include?('.draft')  }.sort
+        Dir[File.join(Configuration::POST_DIRECTORY, '**', '*')].select { |dir| File.directory?(dir) and not dir.include?('.draft')  }.sort
       end
     end
     
@@ -84,13 +92,13 @@ module Marley
       raise ArgumentError, "#{file} is not a readable file" unless File.exist?(file) and File.readable?(file)
       options[:except] ||= []
       options[:only]   ||= Marley::Post.instance_methods # FIXME: Refaktorovat!!
-      dirname       = File.dirname(file).split('/').last
+      dirname       = File.dirname(file).sub(Configuration::POST_DIRECTORY, '')
       file_content  = File.read(file)
       meta_content  = file_content.slice!( self.regexp[:meta] )
       body          = file_content.sub( self.regexp[:title], '').sub( self.regexp[:perex], '').strip
       post          = Hash.new
 
-      post[:id]           = dirname.sub(self.regexp[:id], '\1').sub(/\.draft$/, '')
+      post[:id]           = File.join(dirname.sub(/\.draft$/, ''), File.basename(file).sub(self.regexp[:id], '\1').sub(".txt", ''))
       post[:title], post[:published_on] = file_content.scan( self.regexp[:title_with_date] ).first
       post[:title]        = file_content.scan( self.regexp[:title] ).first.to_s.strip if post[:title].nil?
       post[:published_on] = DateTime.parse( post[:published_on] ) rescue File.mtime( File.dirname(file) )
@@ -112,7 +120,7 @@ module Marley
     end
     
     def self.regexp
-      { :id    => /^\d{0,4}-{0,1}(.*)$/,
+      { :id    => /^\d{8}-{0,1}(.*)$/, # 20081231-some-title.txt -> some-title.txt
         :title => /^#\s*(.*)\s+$/,
         :title_with_date => /^#\s*(.*)\s+\(([0-9\/]+)\)$/,
         :published_on => /.*\s+\(([0-9\/]+)\)$/,

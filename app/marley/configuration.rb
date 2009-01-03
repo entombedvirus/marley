@@ -5,6 +5,9 @@ module Marley
     # Override this as you wish in <tt>config/config.yml</tt>
     DATA_DIRECTORY = File.join(MARLEY_ROOT, CONFIG['data_directory']) unless defined?(DATA_DIRECTORY)
     
+    POST_DIRECTORY = File.join(DATA_DIRECTORY, "posts") unless defined?(POST_DIRECTORY)
+    TAG_DIRECTORY = File.join(DATA_DIRECTORY, "tags") unless defined?(TAG_DIRECTORY)
+    
     unless defined?(REVISION)
       REVISION_NUMBER = File.read( File.join(MARLEY_ROOT, '..', 'REVISION') ) rescue nil
       REVISION = REVISION_NUMBER ? Githubber.new({:user => 'karmi', :repo => 'marley'}).revision( REVISION_NUMBER.chomp ) : nil
